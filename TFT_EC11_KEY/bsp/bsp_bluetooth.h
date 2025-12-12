@@ -32,9 +32,10 @@ extern "C" {
 #define BT_MODULE_HC05          0
 #define BT_MODULE_HC06          1
 #define BT_MODULE_HM10          2   /* BLE */
+#define BT_MODULE_DX_BT311      3   /* DX-BT311 主从一体 */
 
 /* 当前使用的模块类型 */
-#define BT_MODULE_TYPE          BT_MODULE_HC05
+#define BT_MODULE_TYPE          BT_MODULE_DX_BT311
 
 /* 蓝牙使用的串口 */
 #define BT_UART_PORT            UART_PORT_2
@@ -48,6 +49,10 @@ extern "C" {
 
 /* AT命令超时 (ms) */
 #define BT_AT_TIMEOUT           1000
+
+/* DX-BT311特有配置 */
+#define BT_DX311_AT_BAUD        38400   /* AT模式波特率 */
+#define BT_DX311_WORK_BAUD      9600    /* 工作模式波特率 */
 
 /* 数据帧配置 */
 #define BT_FRAME_HEADER         0xAA

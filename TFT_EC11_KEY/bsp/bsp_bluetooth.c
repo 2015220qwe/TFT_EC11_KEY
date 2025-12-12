@@ -295,6 +295,39 @@ int bsp_bluetooth_enter_at_mode(void)
     BT_EN_LOW();
     bsp_uart_set_baudrate(BT_UART_PORT, BT_DEFAULT_BAUD);
     return -1;
+
+#elif BT_MODULE_TYPE == BT_MODULE_DX_BT311
+    /* DX-BT311: EN拉高 + 上电进入AT模式 */
+    /* 注意: 实际使用需要断电后按住按键再上电 */
+    BT_EN_HIGH();
+    delay_ms(200);
+
+    /* 切换波特率到38400 (DX-BT311 AT模式波特率) */
+    bsp_uart_set_baudrate(BT_UART_PORT, BT_DX311_AT_BAUD);
+    delay_ms(100);
+
+    /* 测试AT通信 */
+    if (bsp_bluetooth_test_at() == 0) {
+        in_at_mode = 1;
+        bt_state = BT_STATE_AT_MODE;
+        return 0;
+    }
+
+    /* 尝试工作模式波特率 */
+    bsp_uart_set_baudrate(BT_UART_PORT, BT_DX311_WORK_BAUD);
+    delay_ms(100);
+
+    if (bsp_bluetooth_test_at() == 0) {
+        in_at_mode = 1;
+        bt_state = BT_STATE_AT_MODE;
+        return 0;
+    }
+
+    /* 失败，恢复 */
+    BT_EN_LOW();
+    bsp_uart_set_baudrate(BT_UART_PORT, BT_DEFAULT_BAUD);
+    return -1;
+
 #else
     /* HC-06/HM-10等模块在未连接时可直接发AT命令 */
     if (bsp_bluetooth_test_at() == 0) {
@@ -311,7 +344,7 @@ int bsp_bluetooth_enter_at_mode(void)
  */
 void bsp_bluetooth_exit_at_mode(void)
 {
-#if BT_MODULE_TYPE == BT_MODULE_HC05
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
     BT_EN_LOW();
     delay_ms(100);
     bsp_uart_set_baudrate(BT_UART_PORT, BT_DEFAULT_BAUD);
@@ -326,7 +359,6 @@ void bsp_bluetooth_exit_at_mode(void)
 int bsp_bluetooth_at_cmd(const char *cmd, char *response, uint16_t resp_size, uint32_t timeout_ms)
 {
     char at_cmd[64];
-    uint32_t start_tick;
     uint16_t idx = 0;
     uint8_t byte;
 
@@ -334,15 +366,12 @@ int bsp_bluetooth_at_cmd(const char *cmd, char *response, uint16_t resp_size, ui
     bsp_uart_flush_rx(BT_UART_PORT);
 
     /* 发送AT命令 */
-#if BT_MODULE_TYPE == BT_MODULE_HC05
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
     snprintf(at_cmd, sizeof(at_cmd), "AT+%s\r\n", cmd);
 #else
     snprintf(at_cmd, sizeof(at_cmd), "AT+%s", cmd);
 #endif
     bsp_uart_send_string(BT_UART_PORT, at_cmd);
-
-    /* 等待响应 */
-    start_tick = 0; /* 需要替换为实际的tick获取函数 */
 
     if (response != NULL && resp_size > 0) {
         response[0] = '\0';
@@ -359,7 +388,7 @@ int bsp_bluetooth_at_cmd(const char *cmd, char *response, uint16_t resp_size, ui
         /* 检查是否包含OK */
         if (strstr(response, "OK") != NULL) {
             return 0;
-        } else if (strstr(response, "ERROR") != NULL) {
+        } else if (strstr(response, "ERROR") != NULL || strstr(response, "FAIL") != NULL) {
             return -2;
         }
     }
@@ -374,8 +403,8 @@ int bsp_bluetooth_test_at(void)
 {
     char response[32];
 
-#if BT_MODULE_TYPE == BT_MODULE_HC05
-    /* HC-05: AT返回OK */
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
+    /* HC-05/DX-BT311: AT返回OK */
     bsp_uart_send_string(BT_UART_PORT, "AT\r\n");
 #else
     bsp_uart_send_string(BT_UART_PORT, "AT");
@@ -400,7 +429,7 @@ int bsp_bluetooth_set_name(const char *name)
 {
     char cmd[48];
 
-#if BT_MODULE_TYPE == BT_MODULE_HC05
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
     snprintf(cmd, sizeof(cmd), "NAME=%s", name);
 #elif BT_MODULE_TYPE == BT_MODULE_HC06
     snprintf(cmd, sizeof(cmd), "NAME%s", name);
@@ -418,7 +447,7 @@ int bsp_bluetooth_set_pin(const char *pin)
 {
     char cmd[16];
 
-#if BT_MODULE_TYPE == BT_MODULE_HC05
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
     snprintf(cmd, sizeof(cmd), "PSWD=%s", pin);
 #elif BT_MODULE_TYPE == BT_MODULE_HC06
     snprintf(cmd, sizeof(cmd), "PIN%s", pin);
@@ -437,20 +466,8 @@ int bsp_bluetooth_set_baudrate(uint32_t baudrate)
     char cmd[24];
     int ret;
 
-#if BT_MODULE_TYPE == BT_MODULE_HC05
-    /* HC-05波特率索引: 1=1200, 2=2400, 3=4800, 4=9600, 5=19200, 6=38400, 7=57600, 8=115200 */
-    uint8_t idx;
-    switch (baudrate) {
-    case 1200:   idx = 1; break;
-    case 2400:   idx = 2; break;
-    case 4800:   idx = 3; break;
-    case 9600:   idx = 4; break;
-    case 19200:  idx = 5; break;
-    case 38400:  idx = 6; break;
-    case 57600:  idx = 7; break;
-    case 115200: idx = 8; break;
-    default: return -1;
-    }
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
+    /* HC-05/DX-BT311: UART=波特率,停止位,校验位 */
     snprintf(cmd, sizeof(cmd), "UART=%lu,0,0", baudrate);
 #else
     snprintf(cmd, sizeof(cmd), "BAUD%lu", baudrate);
@@ -471,7 +488,7 @@ int bsp_bluetooth_set_baudrate(uint32_t baudrate)
  */
 int bsp_bluetooth_set_role(bt_role_t role)
 {
-#if BT_MODULE_TYPE == BT_MODULE_HC05
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
     char cmd[16];
     snprintf(cmd, sizeof(cmd), "ROLE=%d", role);
     return bsp_bluetooth_at_cmd(cmd, NULL, 0, BT_AT_TIMEOUT);
@@ -488,6 +505,8 @@ int bsp_bluetooth_factory_reset(void)
 {
 #if BT_MODULE_TYPE == BT_MODULE_HC05
     return bsp_bluetooth_at_cmd("ORGL", NULL, 0, BT_AT_TIMEOUT);
+#elif BT_MODULE_TYPE == BT_MODULE_DX_BT311
+    return bsp_bluetooth_at_cmd("DEFAULT", NULL, 0, BT_AT_TIMEOUT);
 #elif BT_MODULE_TYPE == BT_MODULE_HM10
     return bsp_bluetooth_at_cmd("RENEW", NULL, 0, BT_AT_TIMEOUT);
 #else
@@ -613,8 +632,8 @@ static void bt_update_state(void)
         return;
     }
 
-#if BT_MODULE_TYPE == BT_MODULE_HC05
-    /* HC-05: STATE引脚高电平表示已连接 */
+#if BT_MODULE_TYPE == BT_MODULE_HC05 || BT_MODULE_TYPE == BT_MODULE_DX_BT311
+    /* HC-05/DX-BT311: STATE引脚高电平表示已连接 */
     if (BT_GET_STATE()) {
         bt_state = BT_STATE_CONNECTED;
     } else {
