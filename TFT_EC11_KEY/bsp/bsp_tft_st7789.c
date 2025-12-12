@@ -702,20 +702,91 @@ static void tft_init_seq(void)
     bsp_tft_write_cmd(ST7789_SLPOUT);
     delay_ms(120);
 
+    /* 显示方向 */
+    bsp_tft_write_cmd(ST7789_MADCTL);
+    bsp_tft_write_data(0x00);
+
     /* 像素格式: 16bit RGB565 */
     bsp_tft_write_cmd(ST7789_COLMOD);
     bsp_tft_write_data(0x55);
 
-    /* 显示方向 */
-    bsp_tft_write_cmd(ST7789_MADCTL);
-    bsp_tft_write_data(ST7789_MADCTL_MX | ST7789_MADCTL_MY | ST7789_MADCTL_RGB);
+    /* Porch Setting */
+    bsp_tft_write_cmd(0xB2);
+    bsp_tft_write_data(0x0C);
+    bsp_tft_write_data(0x0C);
+    bsp_tft_write_data(0x00);
+    bsp_tft_write_data(0x33);
+    bsp_tft_write_data(0x33);
 
-    /* 反色开启 (某些屏需要) */
+    /* Gate Control */
+    bsp_tft_write_cmd(0xB7);
+    bsp_tft_write_data(0x35);
+
+    /* VCOM Setting */
+    bsp_tft_write_cmd(0xBB);
+    bsp_tft_write_data(0x28);
+
+    /* LCM Control */
+    bsp_tft_write_cmd(0xC0);
+    bsp_tft_write_data(0x2C);
+
+    /* VDV and VRH Command Enable */
+    bsp_tft_write_cmd(0xC2);
+    bsp_tft_write_data(0x01);
+
+    /* VRH Set */
+    bsp_tft_write_cmd(0xC3);
+    bsp_tft_write_data(0x0B);
+
+    /* VDV Set */
+    bsp_tft_write_cmd(0xC4);
+    bsp_tft_write_data(0x20);
+
+    /* Frame Rate Control */
+    bsp_tft_write_cmd(0xC6);
+    bsp_tft_write_data(0x0F);
+
+    /* Power Control 1 */
+    bsp_tft_write_cmd(0xD0);
+    bsp_tft_write_data(0xA4);
+    bsp_tft_write_data(0xA1);
+
+    /* Positive Gamma Correction */
+    bsp_tft_write_cmd(0xE0);
+    bsp_tft_write_data(0xD0);
+    bsp_tft_write_data(0x01);
+    bsp_tft_write_data(0x08);
+    bsp_tft_write_data(0x0F);
+    bsp_tft_write_data(0x11);
+    bsp_tft_write_data(0x2A);
+    bsp_tft_write_data(0x36);
+    bsp_tft_write_data(0x55);
+    bsp_tft_write_data(0x44);
+    bsp_tft_write_data(0x3A);
+    bsp_tft_write_data(0x0B);
+    bsp_tft_write_data(0x06);
+    bsp_tft_write_data(0x11);
+    bsp_tft_write_data(0x20);
+
+    /* Negative Gamma Correction */
+    bsp_tft_write_cmd(0xE1);
+    bsp_tft_write_data(0xD0);
+    bsp_tft_write_data(0x02);
+    bsp_tft_write_data(0x07);
+    bsp_tft_write_data(0x0A);
+    bsp_tft_write_data(0x0B);
+    bsp_tft_write_data(0x18);
+    bsp_tft_write_data(0x34);
+    bsp_tft_write_data(0x43);
+    bsp_tft_write_data(0x4A);
+    bsp_tft_write_data(0x2B);
+    bsp_tft_write_data(0x1B);
+    bsp_tft_write_data(0x1C);
+    bsp_tft_write_data(0x22);
+    bsp_tft_write_data(0x1F);
+
+    /* 反色开启 (ST7789需要) */
     bsp_tft_write_cmd(ST7789_INVON);
-
-    /* 正常显示模式 */
-    bsp_tft_write_cmd(ST7789_NORON);
-    delay_ms(10);
 
     /* 开启显示 */
     bsp_tft_write_cmd(ST7789_DISPON);
